@@ -1,0 +1,70 @@
+---
+# =============================================================================
+# Rule: Unusual Outbound Network Connection
+# MITRE ATT&CK: T1071.001 – Application Layer Protocol: Web Protocols
+#               T1048     – Exfiltration Over Alternative Protocol
+# =============================================================================
+
+id: unusual-outbound-connection
+name: Unusual Outbound Network Connection
+version: "1.0.0"
+description: >
+  Detects outbound connections to ephemeral/high port ranges (>49151) or
+  connections to external IPs that have not been seen in the past 30 days
+  from this device. Attackers frequently use high, random ports for C2
+  channels, reverse shells, or data exfiltration over non-standard protocols.
+
+event_sources:
+  - network_monitor
+  - process_monitor
+  - windows_event_log
+  - firewall_log
+
+event_categories:
+  - network
+
+conditions:
+  - field: destination_port
+    operator: gt
+    value: 49151
+  - field: direction
+    operator: eq
+    value: outbound
+  - field: destination_ip
+    operator: not_in
+    value:
+      - "10.0.0.0/8"
+      - "172.16.0.0/12"
+      - "192.168.0.0/16"
+      - "127.0.0.0/8"
+
+condition_logic: all
+
+time_window_seconds: 60
+threshold_count: 3
+group_by:
+  - field: device_id
+  - field: destination_ip
+
+severity: medium
+mitre_tactic: Command and Control
+mitre_technique: T1071.001
+
+tags:
+  - network
+  - exfiltration
+  - c2
+  - unusual-port
+
+recommended_steps:
+  - "Identify the process responsible for the outbound connection (check process_name and process_id)."
+  - "Look up the destination IP in threat intelligence (VirusTotal, Shodan, AbuseIPDB)."
+  - "Correlate with other events from the same host in the previous 24 hours."
+  - "Block the destination IP at the perimeter firewall pending investigation."
+  - "If a known-bad process is involved, quarantine the endpoint immediately."
+  - "Review DNS queries from the host around the same timestamp."
+
+suppress_duplicate_seconds: 600
+is_active: true
+is_builtin: true
+created_by: system

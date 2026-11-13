@@ -1,0 +1,56 @@
+---
+# =============================================================================
+# Rule: Agent Offline / Heartbeat Timeout
+# (Custom SecureWatch availability rule – no MITRE technique)
+# =============================================================================
+
+id: agent-offline
+name: Endpoint Agent Offline (Heartbeat Timeout)
+version: "1.0.0"
+description: >
+  Triggers when a monitored endpoint agent has not sent a heartbeat event
+  for more than 10 minutes. This may indicate the agent was killed (defense
+  evasion), the host was powered off unexpectedly, or there is a network
+  connectivity issue. Requires the celery-beat task to generate synthetic
+  heartbeat-timeout events when the heartbeat threshold is crossed.
+
+event_sources:
+  - securewatch_platform
+
+event_categories:
+  - system
+  - availability
+
+conditions:
+  - field: event_type
+    operator: eq
+    value: agent_heartbeat_timeout
+  - field: device_id
+    operator: exists
+
+condition_logic: all
+
+time_window_seconds: 0
+threshold_count: 1
+
+severity: high
+mitre_tactic: Defense Evasion
+mitre_technique: T1562.001
+
+tags:
+  - availability
+  - agent-offline
+  - heartbeat
+
+recommended_steps:
+  - "Check whether the host is reachable via ping / RDP / SSH."
+  - "If unreachable, escalate to the system owner to verify physical / VM status."
+  - "If the host is online but the agent is stopped, restart the agent service."
+  - "Review whether this coincides with other defense-evasion alerts on the same host."
+  - "Check agent logs for crash details or intentional termination entries."
+  - "If agent was deliberately stopped, treat as a potential incident."
+
+suppress_duplicate_seconds: 600
+is_active: true
+is_builtin: true
+created_by: system

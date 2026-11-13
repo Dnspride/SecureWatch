@@ -1,0 +1,251 @@
+# =============================================================================
+# SecureWatch – Docker Compose (Local Development)
+# =============================================================================
+# Production notes:
+#   - OpenSearch security plugin is DISABLED here for dev convenience.
+#     To enable in production, remove the DISABLE_SECURITY_PLUGIN env var and
+#     configure opensearch.yml with TLS certs + users.
+#   - Secrets are injected via .env (copy .env.example → .env and fill values).
+#   - For production, replace env_file with Docker Secrets or AWS Secrets Manager.
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL 15 – primary relational database
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: securewatch-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-securewatch}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - securewatch-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB:-securewatch}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # Redis 7 – message broker + cache + rate-limit counters
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: securewatch-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --requirepass ${REDIS_PASSWORD}
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - securewatch-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # OpenSearch 2.11 – event index / search engine
+  # NOTE: Security plugin DISABLED for dev. See production notes above.
+  # ---------------------------------------------------------------------------
+  opensearch:
+    image: opensearchproject/opensearch:2.11.0
+    container_name: securewatch-opensearch
+    restart: unless-stopped
+    environment:
+      - cluster.name=securewatch-cluster
+      - node.name=securewatch-node1
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g"
+      # Disable security plugin for local dev — REMOVE IN PRODUCTION
+      - DISABLE_SECURITY_PLUGIN=true
+      - DISABLE_INSTALL_DEMO_CONFIG=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+        reservations:
+          memory: 1g
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    ports:
+      - "9200:9200"
+      - "9600:9600"
+    networks:
+      - securewatch-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9200 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # OpenSearch Dashboards 2.11
+  # ---------------------------------------------------------------------------
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:2.11.0
+    container_name: securewatch-dashboards
+    restart: unless-stopped
+    environment:
+      - OPENSEARCH_HOSTS=["http://opensearch:9200"]
+      - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
+    ports:
+      - "5601:5601"
+    networks:
+      - securewatch-network
+    depends_on:
+      opensearch:
+        condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # Backend – FastAPI / uvicorn
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: .
+      dockerfile: deployment/docker/backend/Dockerfile
+      target: production
+    container_name: securewatch-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-securewatch}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      OPENSEARCH_URL: http://opensearch:9200
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    networks:
+      - securewatch-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # Frontend – React / nginx
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: .
+      dockerfile: deployment/docker/frontend/Dockerfile
+    container_name: securewatch-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    networks:
+      - securewatch-network
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # Celery Worker – async task execution
+  # ---------------------------------------------------------------------------
+  celery-worker:
+    build:
+      context: .
+      dockerfile: deployment/docker/backend/Dockerfile
+      target: production
+    container_name: securewatch-celery-worker
+    restart: unless-stopped
+    command: >
+      celery -A app.workers.celery_app worker
+      --loglevel=info
+      --concurrency=4
+      --queues=default,detection,reports
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-securewatch}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      OPENSEARCH_URL: http://opensearch:9200
+    volumes:
+      - ./backend:/app
+    networks:
+      - securewatch-network
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # Celery Beat – periodic task scheduler
+  # ---------------------------------------------------------------------------
+  celery-beat:
+    build:
+      context: .
+      dockerfile: deployment/docker/backend/Dockerfile
+      target: production
+    container_name: securewatch-celery-beat
+    restart: unless-stopped
+    command: >
+      celery -A app.workers.celery_app beat
+      --loglevel=info
+      --scheduler celery.beat:PersistentScheduler
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-securewatch}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+    volumes:
+      - ./backend:/app
+    networks:
+      - securewatch-network
+    depends_on:
+      redis:
+        condition: service_healthy
+
+networks:
+  securewatch-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+  opensearch-data:
+    driver: local

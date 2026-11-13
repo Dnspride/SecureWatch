@@ -1,0 +1,62 @@
+---
+# =============================================================================
+# Rule: Repeated Account Lockouts (3+ in 1 hour)
+# MITRE ATT&CK: T1110.001 – Brute Force: Password Guessing
+# =============================================================================
+
+id: repeated-lockout
+name: Repeated Account Lockouts
+version: "1.0.0"
+description: >
+  Escalation rule that fires when the same account is locked out 3 or more
+  times within a 1-hour window. While a single lockout may be benign, repeated
+  lockouts strongly indicate an ongoing credential attack or a misconfigured
+  service continuously retrying with stale credentials.
+
+event_sources:
+  - windows_event_log
+  - linux_auth
+  - directory_service
+
+event_categories:
+  - authentication
+
+conditions:
+  - field: event_type
+    operator: in
+    value:
+      - account_lockout
+      - user_locked_out
+      - authentication_lockout
+  - field: username
+    operator: exists
+
+condition_logic: all
+
+time_window_seconds: 3600
+threshold_count: 3
+group_by:
+  - field: username
+
+severity: critical
+mitre_tactic: Credential Access
+mitre_technique: T1110.001
+
+tags:
+  - account-lockout
+  - brute-force
+  - repeated
+  - critical
+
+recommended_steps:
+  - "Treat as an active brute-force attack — escalate to the security team immediately."
+  - "Block the source IP(s) generating the failed attempts at the network perimeter."
+  - "If the account belongs to an executive or privileged user, escalate priority."
+  - "Temporarily disable the account if it cannot be used safely while investigating."
+  - "Review all source IPs involved across the full 1-hour window."
+  - "Check whether this is a service account; if so, identify and fix the misconfiguration."
+
+suppress_duplicate_seconds: 1800
+is_active: true
+is_builtin: true
+created_by: system

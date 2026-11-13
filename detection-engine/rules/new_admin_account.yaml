@@ -1,0 +1,70 @@
+---
+# =============================================================================
+# Rule: New Privileged / Admin Account Created
+# MITRE ATT&CK: T1136.001 – Create Account: Local Account
+# =============================================================================
+
+id: new-admin-account
+name: New Privileged Account Created
+version: "1.0.0"
+description: >
+  Fires when a new user account is created and subsequently granted membership
+  in a privileged group (Administrators, Domain Admins, sudo, wheel, etc.) or
+  when Windows Event ID 4720 (account created) is observed for a privileged
+  security-enabled group. Creation of admin accounts outside of your identity
+  governance process is a high-fidelity indicator of persistence or insider threat.
+
+event_sources:
+  - windows_event_log
+  - linux_auth
+  - directory_service
+
+event_categories:
+  - authentication
+  - system
+
+conditions:
+  - field: event_type
+    operator: in
+    value:
+      - user_created
+      - user_added_to_group
+      - account_created
+  - field: raw_data.TargetGroup
+    operator: in
+    value:
+      - Administrators
+      - Domain Admins
+      - Enterprise Admins
+      - Schema Admins
+      - sudo
+      - wheel
+      - root
+      - adm
+
+condition_logic: any
+
+time_window_seconds: 0
+threshold_count: 1
+
+severity: high
+mitre_tactic: Persistence
+mitre_technique: T1136.001
+
+tags:
+  - persistence
+  - account-creation
+  - privilege-escalation
+
+recommended_steps:
+  - "Confirm whether this account creation was authorized via your identity governance / ticketing system."
+  - "Identify the user or process that created the account (see SubjectUserName in the event)."
+  - "If unauthorized, disable the new account immediately and investigate the creating principal."
+  - "Review other actions taken by the creating user in the same time window."
+  - "Audit all current members of privileged groups and remove stale accounts."
+  - "Ensure privileged account creation is gated by an approval workflow."
+
+suppress_duplicate_seconds: 60
+is_active: true
+is_builtin: true
+created_by: system

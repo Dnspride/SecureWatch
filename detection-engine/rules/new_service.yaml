@@ -1,0 +1,64 @@
+---
+# =============================================================================
+# Rule: New or Unexpected Service / Systemd Unit Installed
+# MITRE ATT&CK: T1543.003 – Create or Modify System Process: Windows Service
+#               T1543.002 – Create or Modify System Process: Systemd Service
+# =============================================================================
+
+id: new-service-installed
+name: New or Unexpected Service Installed
+version: "1.0.0"
+description: >
+  Detects the creation of a new Windows service (Event ID 7045) or a new
+  Linux systemd unit file. Attackers install malicious services or unit files
+  for persistence, often masquerading as legitimate system services. Any new
+  service installation outside of a known change window should be investigated.
+
+event_sources:
+  - windows_event_log
+  - linux_auth
+  - syslog
+  - auditd
+  - process_monitor
+
+event_categories:
+  - system
+  - process
+
+conditions:
+  - field: event_type
+    operator: in
+    value:
+      - service_installed
+      - service_created
+      - new_systemd_unit
+      - new_service
+  - field: service_name
+    operator: exists
+
+condition_logic: all
+
+time_window_seconds: 0
+threshold_count: 1
+
+severity: high
+mitre_tactic: Persistence
+mitre_technique: T1543.003
+
+tags:
+  - persistence
+  - new-service
+  - systemd
+
+recommended_steps:
+  - "Verify whether the service installation was part of an authorized change."
+  - "Inspect the service binary path and validate its signature / hash."
+  - "Check if the service binary resides in a suspicious location (TEMP, AppData, etc.)."
+  - "Review the service account under which the service runs."
+  - "If unauthorized, stop and delete the service and quarantine the binary."
+  - "Search for the binary hash in threat intelligence databases."
+
+suppress_duplicate_seconds: 120
+is_active: true
+is_builtin: true
+created_by: system

@@ -1,0 +1,90 @@
+---
+# =============================================================================
+# Rule: Antivirus / EDR Service Stopped
+# MITRE ATT&CK: T1562.001 – Impair Defenses: Disable or Modify Tools
+# =============================================================================
+
+id: antivirus-disabled
+name: Antivirus or EDR Service Stopped
+version: "1.0.0"
+description: >
+  Detects when a known AV or EDR service is stopped or disabled via sc.exe,
+  systemctl, or Windows Service Control Manager. Attackers routinely kill
+  security tooling as a precursor to malware deployment or lateral movement.
+
+event_sources:
+  - windows_event_log
+  - linux_auth
+  - process_monitor
+  - syslog
+
+event_categories:
+  - system
+  - process
+
+conditions:
+  - field: event_type
+    operator: in
+    value:
+      - service_stopped
+      - service_disabled
+      - process_terminated
+  - field: service_name
+    operator: in
+    value:
+      # Windows Defender
+      - WinDefend
+      - MsMpSvc
+      - SecurityHealthService
+      # CrowdStrike Falcon
+      - csagent
+      - csfalconservice
+      # Carbon Black
+      - cbdefense
+      - CbDefense
+      # SentinelOne
+      - SentinelAgent
+      - SentinelStaticEngine
+      # Symantec
+      - SepMasterService
+      - SmcService
+      # Trend Micro
+      - TMBMServer
+      - TmCCSF
+      # Sophos
+      - SAVService
+      - SophosAgent
+      # McAfee
+      - McShield
+      # Linux AV / EDR
+      - clamav
+      - clamd
+      - falcon-sensor
+
+condition_logic: all
+
+time_window_seconds: 0
+threshold_count: 1
+
+severity: critical
+mitre_tactic: Defense Evasion
+mitre_technique: T1562.001
+
+tags:
+  - defense-evasion
+  - antivirus
+  - edr
+  - impair-defenses
+
+recommended_steps:
+  - "Immediately restart the AV/EDR service if safe to do so."
+  - "Identify the user account and process that issued the stop command."
+  - "Check for malware execution or suspicious process creation in the same time window."
+  - "Quarantine the endpoint if unauthorized tampering is confirmed."
+  - "Review event logs for other defense-impairment events (firewall, logging)."
+  - "Engage your EDR vendor's incident response team if the managed sensor was killed."
+
+suppress_duplicate_seconds: 300
+is_active: true
+is_builtin: true
+created_by: system

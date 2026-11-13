@@ -1,0 +1,1 @@
+"""SecureWatch collectors package."""

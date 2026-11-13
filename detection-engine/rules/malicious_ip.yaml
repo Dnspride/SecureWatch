@@ -1,0 +1,59 @@
+---
+# =============================================================================
+# Rule: Connection to / from Known Malicious IP
+# MITRE ATT&CK: T1071 – Application Layer Protocol (C2)
+#               T1041 – Exfiltration Over C2 Channel
+# =============================================================================
+
+id: malicious-ip-connection
+name: Connection to or from Known Malicious IP
+version: "1.1.0"
+description: >
+  Detects network connections where the source or destination IP address
+  appears on a threat intelligence-backed block list. The list is maintained
+  in the file specified by MALICIOUS_IP_LIST_PATH and refreshed periodically
+  by the threat intelligence update task. Matches against CISA KEV IPs,
+  Spamhaus DROP, Emerging Threats, AbuseIPDB top offenders, and custom IOCs.
+
+event_sources:
+  - network_monitor
+  - firewall_log
+  - process_monitor
+  - windows_event_log
+
+event_categories:
+  - network
+
+conditions:
+  - field: threat_intel.is_malicious_ip
+    operator: eq
+    value: true          # enriched by TI lookup in the pipeline
+
+condition_logic: all
+
+time_window_seconds: 0
+threshold_count: 1
+
+severity: critical
+mitre_tactic: Command and Control
+mitre_technique: T1071
+
+tags:
+  - threat-intel
+  - malicious-ip
+  - c2
+  - ioc
+
+recommended_steps:
+  - "Block the malicious IP immediately at the network perimeter (firewall/WAF/SASE)."
+  - "Identify all endpoints that communicated with this IP in the past 30 days."
+  - "Inspect the process responsible for the connection on the affected host."
+  - "Review DNS, proxy, and NetFlow logs for the full communication timeline."
+  - "Check threat intelligence sources for the IP's known threat actor associations."
+  - "Quarantine the affected endpoint and initiate incident response procedures."
+  - "Report the IOC to your ISAC or sharing community."
+
+suppress_duplicate_seconds: 300
+is_active: true
+is_builtin: true
+created_by: system

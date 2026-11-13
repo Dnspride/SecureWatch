@@ -1,0 +1,68 @@
+---
+# =============================================================================
+# Rule: Privilege Escalation Indicators
+# MITRE ATT&CK: T1548.002 – Abuse Elevation Control Mechanism: Bypass UAC
+#               T1548.003 – Abuse Elevation Control Mechanism: Sudo / Sudo Caching
+# =============================================================================
+
+id: privilege-escalation
+name: Privilege Escalation Detected
+version: "1.2.0"
+description: >
+  Detects common privilege-escalation patterns:
+    - Linux: sudo command run as root by a non-standard user
+    - Windows: UAC bypass via known LOLBin patterns (fodhelper, eventvwr, sdclt, cmstp)
+    - Windows: Token duplication / impersonation (special privileges assigned – Event 4672)
+    - Cross-platform: process launched as SYSTEM/root when parent is a low-privilege process
+
+event_sources:
+  - windows_event_log
+  - linux_auth
+  - process_monitor
+
+event_categories:
+  - authentication
+  - process
+  - system
+
+conditions:
+  - field: event_type
+    operator: in
+    value:
+      - special_privileges_assigned
+      - sudo_command_executed
+      - uac_bypass
+      - token_elevation
+      - process_created
+  - field: username
+    operator: neq
+    value: ""
+
+condition_logic: any
+
+time_window_seconds: 0
+threshold_count: 1
+
+severity: critical
+mitre_tactic: Privilege Escalation
+mitre_technique: T1548.002
+
+tags:
+  - privilege-escalation
+  - uac-bypass
+  - sudo
+  - lateral-movement
+
+recommended_steps:
+  - "Immediately isolate the affected endpoint if the escalation is confirmed unauthorized."
+  - "Capture a memory dump and preserve disk image for forensic analysis."
+  - "Identify the parent process chain and trace back to the initial access vector."
+  - "Check for lateral movement indicators from the same host in the past 24 hours."
+  - "Revoke any tokens or sessions created by the escalated process."
+  - "Patch the specific UAC bypass or sudo misconfiguration that was exploited."
+  - "Review sudoers / group policy for unnecessary privilege grants."
+
+suppress_duplicate_seconds: 120
+is_active: true
+is_builtin: true
+created_by: system

@@ -1,0 +1,93 @@
+---
+# =============================================================================
+# Rule: Suspicious Parent-Child Process Relationship
+# MITRE ATT&CK: T1059.001 – Command and Scripting Interpreter: PowerShell
+#               T1566.001 – Phishing: Spearphishing Attachment (Office → shell)
+# =============================================================================
+
+id: suspicious-process
+name: Suspicious Parent-Child Process Relationship
+version: "1.3.0"
+description: >
+  Detects abnormal parent-child process chains that are strongly associated
+  with malware execution:
+    - Office applications (Word, Excel, Outlook) spawning cmd.exe, PowerShell,
+      wscript, cscript, mshta, or rundll32
+    - PowerShell invoked with encoded command flags (-enc, -EncodedCommand)
+    - cmd.exe or powershell.exe spawned by unusual parents (msiexec, regsvr32,
+      svchost, explorer when non-interactive, etc.)
+    - Living-off-the-Land Binaries (LOLBins) used for unusual purposes
+
+event_sources:
+  - windows_event_log
+  - process_monitor
+  - sysmon
+  - edr
+
+event_categories:
+  - process
+
+conditions:
+  - field: event_type
+    operator: in
+    value:
+      - process_created
+      - process_spawn
+  - field: parent_process_name
+    operator: in
+    value:
+      - WINWORD.EXE
+      - EXCEL.EXE
+      - OUTLOOK.EXE
+      - POWERPNT.EXE
+      - ONENOTE.EXE
+      - AcroRd32.exe
+      - FoxitPDFReader.exe
+      - msiexec.exe
+      - regsvr32.exe
+      - wscript.exe
+      - cscript.exe
+      - mshta.exe
+  - field: process_name
+    operator: in
+    value:
+      - cmd.exe
+      - powershell.exe
+      - pwsh.exe
+      - wscript.exe
+      - cscript.exe
+      - mshta.exe
+      - rundll32.exe
+      - certutil.exe
+      - bitsadmin.exe
+      - curl.exe
+      - wget.exe
+
+condition_logic: all
+
+time_window_seconds: 0
+threshold_count: 1
+
+severity: critical
+mitre_tactic: Execution
+mitre_technique: T1059.001
+
+tags:
+  - suspicious-process
+  - lolbin
+  - office-macro
+  - powershell
+
+recommended_steps:
+  - "Immediately isolate the endpoint if the process chain is confirmed malicious."
+  - "Collect the full process command line, working directory, and loaded DLLs."
+  - "Hash the spawned binary and check against VirusTotal / internal threat intel."
+  - "Review network connections made by the spawned process."
+  - "Check if the Office document or PDF that triggered the chain is known malicious."
+  - "Engage the incident response playbook for commodity malware / initial access."
+  - "Scan neighbouring hosts for the same IOC."
+
+suppress_duplicate_seconds: 120
+is_active: true
+is_builtin: true
+created_by: system

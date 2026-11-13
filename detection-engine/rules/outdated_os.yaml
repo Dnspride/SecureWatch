@@ -1,0 +1,61 @@
+---
+# =============================================================================
+# Rule: Outdated / End-of-Life Operating System
+# (Compliance and vulnerability management rule)
+# =============================================================================
+
+id: outdated-os
+name: Outdated or End-of-Life Operating System Detected
+version: "1.0.0"
+description: >
+  Detects when an endpoint reports an OS version that has reached end-of-life
+  or falls below the organization's minimum supported version threshold.
+  EOL systems no longer receive security patches and represent elevated risk.
+  This rule is evaluated during agent registration and periodically via the
+  risk scoring task.
+
+event_sources:
+  - securewatch_platform
+  - agent_inventory
+
+event_categories:
+  - system
+  - compliance
+
+conditions:
+  - field: event_type
+    operator: in
+    value:
+      - os_version_report
+      - inventory_update
+      - agent_registration
+  - field: raw_data.os_eol
+    operator: eq
+    value: true
+
+condition_logic: all
+
+time_window_seconds: 0
+threshold_count: 1
+
+severity: medium
+mitre_tactic: Initial Access
+mitre_technique: T1190
+
+tags:
+  - compliance
+  - eol
+  - vulnerability
+  - inventory
+
+recommended_steps:
+  - "Review the OS version and confirm whether it has officially reached EOL."
+  - "Identify the system owner and open a remediation ticket to upgrade the OS."
+  - "Apply compensating controls: isolate from sensitive network segments, enable host-based WAF/IDS."
+  - "Accelerate patch testing cycle if the system is approaching EOL but not yet there."
+  - "Report EOL systems in the next compliance review meeting."
+
+suppress_duplicate_seconds: 86400     # suppress re-alerts for 24 h
+is_active: true
+is_builtin: true
+created_by: system

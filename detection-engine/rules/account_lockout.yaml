@@ -1,0 +1,59 @@
+---
+# =============================================================================
+# Rule: Account Lockout
+# MITRE ATT&CK: T1110.001 – Brute Force: Password Guessing
+# =============================================================================
+
+id: account-lockout
+name: User Account Locked Out
+version: "1.0.0"
+description: >
+  Detects when a user account is locked out due to too many failed
+  authentication attempts (Windows Event ID 4740 or Linux pam_tally/faillock).
+  A single lockout may indicate a user forgot their password; multiple lockouts
+  or lockouts of privileged accounts require immediate investigation.
+
+event_sources:
+  - windows_event_log
+  - linux_auth
+  - directory_service
+
+event_categories:
+  - authentication
+
+conditions:
+  - field: event_type
+    operator: in
+    value:
+      - account_lockout
+      - user_locked_out
+      - authentication_lockout
+  - field: username
+    operator: exists
+
+condition_logic: all
+
+time_window_seconds: 0
+threshold_count: 1
+
+severity: medium
+mitre_tactic: Credential Access
+mitre_technique: T1110.001
+
+tags:
+  - account-lockout
+  - brute-force
+  - authentication
+
+recommended_steps:
+  - "Identify the account that was locked and determine if it is a privileged account."
+  - "Review the source IP(s) that caused the lockout attempts."
+  - "Check whether the lockout occurred outside of business hours."
+  - "Correlate with brute-force rule alerts to build a complete picture."
+  - "Unlock the account only after confirming the legitimate owner initiated contact."
+  - "If a service account was locked, identify the misconfigured service causing retries."
+
+suppress_duplicate_seconds: 300
+is_active: true
+is_builtin: true
+created_by: system

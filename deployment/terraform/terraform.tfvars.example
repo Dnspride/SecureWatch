@@ -1,0 +1,18 @@
+# ==============================================================================
+# SecureWatch 100% Docker Host – Variables Template
+# Copy this file to `terraform.tfvars` before running `terraform apply`.
+# ==============================================================================
+
+aws_region        = "us-east-1"
+environment       = "production"
+project_name      = "securewatch"
+vpc_cidr          = "10.100.0.0/16"
+
+# Minimum 16GB RAM is recommended to run OpenSearch, PostgreSQL, Redis, Backend & Frontend smoothly
+app_instance_type = "t3.xlarge"
+
+# Replace with your AWS EC2 Key Pair name (without .pem extension)
+ec2_key_name      = "your-ec2-keypair-name"
+
+# Restrict SSH to your personal IP (e.g., "203.0.113.50/32") or leave open ("0.0.0.0/0")
+admin_ssh_cidr    = "0.0.0.0/0"

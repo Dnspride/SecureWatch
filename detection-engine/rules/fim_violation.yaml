@@ -1,0 +1,67 @@
+---
+# =============================================================================
+# Rule: File Integrity Monitoring Violation
+# MITRE ATT&CK: T1565.001 – Data Manipulation: Stored Data Manipulation
+# =============================================================================
+
+id: fim-violation
+name: File Integrity Monitoring Violation
+version: "1.0.0"
+description: >
+  Detects unauthorized modifications, deletions, or creations of files in
+  monitored critical paths such as system binaries, configuration files, and
+  security tool directories. FIM violations may indicate rootkit installation,
+  configuration tampering, or data destruction.
+
+event_sources:
+  - fim_monitor
+  - sysmon
+  - auditd
+
+event_categories:
+  - fim
+  - system
+
+conditions:
+  - field: event_type
+    operator: in
+    value:
+      - file_modified
+      - file_deleted
+      - file_created
+      - file_renamed
+      - file_permission_changed
+  - field: file_path
+    operator: regex
+    value: >-
+      (^/etc/|^/bin/|^/sbin/|^/usr/bin/|^/usr/sbin/|^/boot/|
+       ^C:\\Windows\\System32\\|^C:\\Windows\\SysWOW64\\|
+       ^C:\\Program Files\\|^C:\\ProgramData\\Microsoft\\Windows Defender\\)
+    case_insensitive: true
+
+condition_logic: all
+
+time_window_seconds: 0
+threshold_count: 1
+
+severity: high
+mitre_tactic: Impact
+mitre_technique: T1565.001
+
+tags:
+  - fim
+  - integrity
+  - tampering
+
+recommended_steps:
+  - "Identify the process (PID, process_name) and user that made the change."
+  - "Compare the file hash in the alert to the known-good baseline."
+  - "If a system binary was modified, the host may be compromised — isolate immediately."
+  - "Restore the file from a trusted backup if modification was unauthorized."
+  - "Check for other FIM violations on the same host in the same time window."
+  - "Review package manager logs to rule out a legitimate OS update."
+
+suppress_duplicate_seconds: 60
+is_active: true
+is_builtin: true
+created_by: system

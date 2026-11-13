@@ -1,0 +1,49 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "title": "API Request Rate (req/sec)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "rate(http_requests_total[1m])", "legendFormat": "{{method}} {{path}}" }
+      ]
+    },
+    {
+      "title": "Security Events Ingestion Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        { "expr": "rate(securewatch_events_ingested_total[1m])", "legendFormat": "Events/sec" }
+      ]
+    },
+    {
+      "title": "Active Endpoint Devices",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 8 },
+      "targets": [
+        { "expr": "securewatch_devices_online_count", "legendFormat": "Online" }
+      ]
+    },
+    {
+      "title": "Critical Unresolved Alerts",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 8 },
+      "targets": [
+        { "expr": "securewatch_alerts_critical_count", "legendFormat": "Critical" }
+      ]
+    }
+  ],
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["securewatch", "soc", "siem"],
+  "time": { "from": "now-6h", "to": "now" },
+  "title": "SecureWatch Platform Operations",
+  "version": 1
+}

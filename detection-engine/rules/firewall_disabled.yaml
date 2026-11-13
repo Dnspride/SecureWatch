@@ -1,0 +1,65 @@
+---
+# =============================================================================
+# Rule: Firewall Disabled
+# MITRE ATT&CK: T1562.004 – Impair Defenses: Disable or Modify System Firewall
+# =============================================================================
+
+id: firewall-disabled
+name: Host Firewall Disabled
+version: "1.0.0"
+description: >
+  Detects events indicating that the Windows Defender Firewall or Linux
+  iptables/nftables/ufw has been stopped or disabled. Disabling the host
+  firewall removes a critical layer of defense and is a common attacker
+  technique to ease lateral movement or C2 communication.
+
+event_sources:
+  - windows_event_log
+  - linux_auth
+  - syslog
+  - process_monitor
+
+event_categories:
+  - system
+  - network
+
+conditions:
+  - field: event_type
+    operator: in
+    value:
+      - firewall_disabled
+      - firewall_stopped
+      - firewall_service_stopped
+      - iptables_flushed
+      - ufw_disabled
+  - field: description
+    operator: regex
+    value: "(firewall|iptables|nftables|ufw|netsh advfirewall).*(disabled|stopped|flushed|set currentprofile state off)"
+    case_insensitive: true
+
+condition_logic: any
+
+time_window_seconds: 0
+threshold_count: 1
+
+severity: high
+mitre_tactic: Defense Evasion
+mitre_technique: T1562.004
+
+tags:
+  - defense-evasion
+  - firewall
+  - impair-defenses
+
+recommended_steps:
+  - "Immediately re-enable the host firewall using GPO or remote management."
+  - "Identify the process or user that disabled the firewall."
+  - "Check whether this change was part of an authorized maintenance window."
+  - "Review other defense-impairment events from the same host (AV, logging)."
+  - "Assess whether lateral movement occurred during the exposure window."
+  - "Alert the incident response team if this was not a planned change."
+
+suppress_duplicate_seconds: 300
+is_active: true
+is_builtin: true
+created_by: system

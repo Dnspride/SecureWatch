@@ -1,0 +1,62 @@
+---
+# =============================================================================
+# Rule: Authentication Outside Business Hours
+# MITRE ATT&CK: T1078 – Valid Accounts
+# =============================================================================
+
+id: unusual-login-time
+name: Authentication Outside Business Hours
+version: "1.0.0"
+description: >
+  Detects successful interactive logins that occur outside of configured
+  business hours (default 08:00–18:00 Monday–Friday). After-hours access
+  may indicate account compromise, insider threat activity, or policy
+  violations. The business hours window is configurable via environment
+  variables (BUSINESS_HOURS_START, BUSINESS_HOURS_END, BUSINESS_DAYS).
+
+event_sources:
+  - windows_event_log
+  - linux_auth
+  - sshd
+  - vpn_auth
+
+event_categories:
+  - authentication
+
+conditions:
+  - field: event_type
+    operator: in
+    value:
+      - login_success
+      - authentication_success
+      - interactive_logon
+      - remote_logon
+  - field: outside_business_hours
+    operator: eq
+    value: true          # enriched by the pipeline's time-enrichment step
+
+condition_logic: all
+
+time_window_seconds: 0
+threshold_count: 1
+
+severity: low
+mitre_tactic: Initial Access
+mitre_technique: T1078
+
+tags:
+  - after-hours
+  - authentication
+  - insider-threat
+
+recommended_steps:
+  - "Contact the account owner to confirm whether they intentionally logged in after hours."
+  - "Check whether this is a known remote-work or on-call scenario."
+  - "Review what actions were performed during the after-hours session."
+  - "Correlate with VPN logs to verify the access was from an expected location."
+  - "If the user is unaware of the login, treat as a potential account compromise."
+
+suppress_duplicate_seconds: 3600
+is_active: true
+is_builtin: true
+created_by: system
